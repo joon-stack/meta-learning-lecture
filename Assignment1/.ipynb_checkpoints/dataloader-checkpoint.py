@@ -46,10 +46,15 @@ class DataLoader(object):
 
         ##################################################
         
-        task_keys = list(self.data.keys())
+        task_keys = np.random.permutation(list(self.data.keys()))
+        task = {}
+        
         for i in range(n_tasks):
-            key = task_keys[i]
-            task_list.append({key:self.data[key]})
+            for j in range(n_way):
+                seq = np.random.permutation(n_query + n_support)
+                key = task_keys[j]
+                task[key] = seq
+            task_list.append(task)
         
         self.task_list = task_list
         
@@ -90,13 +95,17 @@ class DataLoader(object):
 
         ##################################################
         
-        task_item = np.random.permutation(list(task.values())[0])
+        print(task)
+        for i, key in enumerate(list(task.keys())):
+            values = task[key]
         
-        for i in range(self.n_support):
-            support[i]= tf.reshape(task_item[i], [28, 28, 1])
-        
-        for i in range(self.n_support, self.n_support + self.n_query):
-            query[i - self.n_support] = tf.reshape(task_item[i], [28, 28, 1])
+            images = self.data[key]
+            for j in range(self.n_support):
+                idx = values[j]
+                support[i][j] = tf.reshape(images[idx], (28, 28, 1))
+            for j in range(self.n_query):
+                idx = values[j + self.n_support]
+                query[i][j] = tf.reshape(images[idx], (28, 28, 1))
             
         return support, query
 
@@ -124,7 +133,7 @@ class DataLoader(object):
         
         support = np.zeros([n_way, n_support, 28, 28, 1], dtype=np.float32)
         query = np.zeros([n_way, n_query, 28, 28, 1], dtype=np.float32)
-        
+    
         ############### Your code here ###################
             # TODO: finish implementing this method.
             # create a support and query dataset with shapes
