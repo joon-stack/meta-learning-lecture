@@ -44,9 +44,11 @@ class Prototypical_Network(Model):
         n_way = support.shape[0]
         n_support = support.shape[1]
         n_query = query.shape[1]
+    
         
-        reshaped_s = tf.reshape(support, (n_way * n_support, self.w, self.h,self.c))
-        reshaped_q = tf.reshape(query, (n_way * n_query, self.w, self.h,self.c))
+        reshaped_s = tf.reshape(support, (n_way * n_support, self.w, self.h, self.c))
+        reshaped_q = tf.reshape(query, (n_way * n_query, self.w, self.h, self.c))
+        
         
         # Embeddings are in the shape of (n_support+n_query, 64)
         embeddings = self.encoder(tf.concat([reshaped_s, reshaped_q], axis=0))
@@ -58,6 +60,8 @@ class Prototypical_Network(Model):
         # Query embeddings are the remainding embeddings
         q_embeddings = embeddings[n_way * n_support:]
         
+        print("Support prototype shape: {}".format(s_prototypes.shape))
+        print("Query embedding shape: {}".format(q_embeddings.shape))
         
         loss = 0.0
         acc = 0.0
@@ -71,6 +75,15 @@ class Prototypical_Network(Model):
             
 
         ##################################################
+        
+        # Expand dimensions to broadcast
+        expanded_s_prototypes = tf.expand_dims(s_prototypes, 1)
+        expanded_q_embeddings = tf.expand_dims(q_embeddings, 0)
+        
+        sub = tf.math.subtract(expanded_s_prototypes, expanded_q_embeddings)
+        dist = tf.math.reduce_euclidean_norm(sub, 2)
+        log_likelihood = tf.nn.log_softmax(dist, 0)
+        
         
         return loss, acc
     

@@ -3,14 +3,16 @@ import numpy as np
 from model import Prototypical_Network
 
 def train_model(train_dataset, val_dataset, n_tasks:int, n_epochs:int=20, n_tpe:int=100, is_random:bool=False):
-    @tf.function
+    
+    # @tf.function
     def loss_func(support, query):
         loss, acc = model(support, query)
         return loss, acc
 
-    @tf.function
+    # @tf.function
     def train(support, query):
         # Forward & update gradients
+    
         with tf.GradientTape() as tape:
             loss, acc = model(support, query)
         gradients = tape.gradient(loss, model.trainable_variables)
@@ -21,7 +23,7 @@ def train_model(train_dataset, val_dataset, n_tasks:int, n_epochs:int=20, n_tpe:
         train_loss(loss)
         train_acc(acc)
 
-    @tf.function
+    # @tf.function
     def validate(support, query):
         loss, acc = loss_func(support, query)
         val_loss(loss)
@@ -65,7 +67,6 @@ def train_model(train_dataset, val_dataset, n_tasks:int, n_epochs:int=20, n_tpe:
             else:
                 support, query = train_dataset.data_generator(task)
             val_support, val_query = val_dataset.data_generator()
-
             train(support, query)
             validate(val_support, val_query)
         on_end_epoch(train_loss, train_acc, val_loss, val_acc, val_losses, val_accs, train_losses, train_accs)

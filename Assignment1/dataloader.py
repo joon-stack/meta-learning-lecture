@@ -95,7 +95,6 @@ class DataLoader(object):
 
         ##################################################
         
-        print(task)
         for i, key in enumerate(list(task.keys())):
             values = task[key]
         
@@ -106,7 +105,7 @@ class DataLoader(object):
             for j in range(self.n_query):
                 idx = values[j + self.n_support]
                 query[i][j] = tf.reshape(images[idx], (28, 28, 1))
-            
+        
         return support, query
 
     def random_data_generator(self):
