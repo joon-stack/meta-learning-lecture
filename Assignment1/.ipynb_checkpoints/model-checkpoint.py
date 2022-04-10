@@ -5,6 +5,8 @@ from tensorflow.keras import Model
 
 import numpy as np
 
+
+import matplotlib.pyplot as plt
     
 class ConvLayer(Layer):
     def __init__(self, filters, kernel_size, padding:str='same'):
@@ -59,10 +61,7 @@ class Prototypical_Network(Model):
         s_prototypes = tf.math.reduce_mean(s_prototypes, axis=1)
         # Query embeddings are the remainding embeddings
         q_embeddings = embeddings[n_way * n_support:]
-        
-        print("Support prototype shape: {}".format(s_prototypes.shape))
-        print("Query embedding shape: {}".format(q_embeddings.shape))
-        
+
         loss = 0.0
         acc = 0.0
         ############### Your code here ###################
@@ -76,19 +75,36 @@ class Prototypical_Network(Model):
 
         ##################################################
         
-        # expand dimensions to broadcast
+        # Expand dimensions to broadcast
         expanded_s_prototypes = tf.expand_dims(s_prototypes, 1)
         expanded_q_embeddings = tf.expand_dims(q_embeddings, 0)
         
-        sub = tf.math.subtract(expanded_s_prototypes, expanded_q_embeddings)
-        print(sub.shape)
-        dist = tf.math.reduce_euclidean_norm(sub, 2)
-        print(dist.shape)
-        log_likelihood = tf.nn.log_softmax(dist, 0)
-        print(log_likelihood)
+        # test_q = tf.reshape(reshaped_q, (n_way, n_query, 28, 28, 1))
         
+        sub = tf.math.subtract(expanded_s_prototypes, expanded_q_embeddings)
+        dists = tf.math.reduce_euclidean_norm(sub, 2)
+    
+        log_likelihood = (-1) * tf.nn.log_softmax(-dists, 1)
+
+        for i in range(n_way):
+            for j in range(n_query):
+                loss += log_likelihood[i][i * n_query + j]
+        
+        loss = loss / n_way / n_query
+        
+        pred = tf.argmin(log_likelihood, 0)
+        
+#         label = tf.zeros(n_query, dtype=tf.int64)
+        
+#         for i in range(1, n_way):
+#             label = tf.concat([label, tf.ones(n_query, dtype=tf.int64) * i], 0)
+        
+        label = np.tile(np.arange(n_way)[:, np.newaxis], (1, n_query)).reshape(1, -1)
+        eq = tf.cast(tf.math.equal(pred, tf.cast(label, tf.int64)), tf.float32)
+        acc = tf.reduce_mean(eq)
+        # mask = tf.math.equal(pred, label)
+        # count = tf.math.reduce_sum(tf.boolean_mask(np.ones(mask.shape), mask))
+        
+        # acc = count / pred.shape[0]
         
         return loss, acc
-    
-    
-    

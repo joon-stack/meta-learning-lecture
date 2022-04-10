@@ -2,14 +2,16 @@ import tensorflow as tf
 import numpy as np
 from model import Prototypical_Network
 
+import matplotlib.pyplot as plt
+
 def train_model(train_dataset, val_dataset, n_tasks:int, n_epochs:int=20, n_tpe:int=100, is_random:bool=False):
     
-    # @tf.function
+    @tf.function
     def loss_func(support, query):
         loss, acc = model(support, query)
         return loss, acc
 
-    # @tf.function
+    @tf.function
     def train(support, query):
         # Forward & update gradients
     
@@ -23,7 +25,7 @@ def train_model(train_dataset, val_dataset, n_tasks:int, n_epochs:int=20, n_tpe:
         train_loss(loss)
         train_acc(acc)
 
-    # @tf.function
+    @tf.function
     def validate(support, query):
         loss, acc = loss_func(support, query)
         val_loss(loss)
@@ -38,7 +40,9 @@ def train_model(train_dataset, val_dataset, n_tasks:int, n_epochs:int=20, n_tpe:
 
     def on_end_epoch(train_loss, train_acc, val_loss, val_acc, val_losses, val_accs, train_losses, train_accs):
         print(f'\t-Train Loss:{train_loss.result():.3f} | Train Acc:{train_acc.result() * 100:.2f}%\n\t-Val Loss:{val_loss.result():.3f} | Val Acc:{val_acc.result() * 100:.2f}%')
-
+        
+        train_losses.append(train_loss.result().numpy())
+        train_accs.append(train_acc.result().numpy())
         val_losses.append(val_loss.result().numpy())
         val_accs.append(val_acc.result().numpy())
         
@@ -70,6 +74,18 @@ def train_model(train_dataset, val_dataset, n_tasks:int, n_epochs:int=20, n_tpe:
             train(support, query)
             validate(val_support, val_query)
         on_end_epoch(train_loss, train_acc, val_loss, val_acc, val_losses, val_accs, train_losses, train_accs)
+    
+    # Plot training results
+    fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+    axs[0].plot(np.arange(n_epochs), val_accs)
+    axs[1].plot(np.arange(n_epochs), np.array(train_accs) - np.array(val_accs))
+    axs[0].set_title('Validation Accuracy')
+    axs[1].set_title('Overfitting Degree')
+    axs[0].set_xlabel('Epochs')
+    axs[1].set_xlabel('Epochs')
+    axs[0].set_ylabel('Validation Accruacy')
+    axs[1].set_ylabel('Overfitting Degree')
+    plt.show()
         
     return train_accs, train_losses, val_accs, val_losses
 

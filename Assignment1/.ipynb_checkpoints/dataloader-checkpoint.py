@@ -46,10 +46,9 @@ class DataLoader(object):
 
         ##################################################
         
-        task_keys = np.random.permutation(list(self.data.keys()))
-        task = {}
-        
         for i in range(n_tasks):
+            task_keys = np.random.permutation(list(self.data.keys()))
+            task = {}
             for j in range(n_way):
                 seq = np.random.permutation(n_query + n_support)
                 key = task_keys[j]
@@ -97,7 +96,6 @@ class DataLoader(object):
         
         for i, key in enumerate(list(task.keys())):
             values = task[key]
-        
             images = self.data[key]
             for j in range(self.n_support):
                 idx = values[j]
