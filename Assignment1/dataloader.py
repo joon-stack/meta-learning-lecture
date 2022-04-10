@@ -120,8 +120,21 @@ class DataLoader(object):
         
 
         ##################################################
-
+        
+        idx = np.random.randint(1, len(n_ways))
+        n_way = n_ways[idx]
+        n_shot = n_shots[idx]
+        # print("{} way {} shot task".format(n_way, n_shot))
+        
+        # Modify n_support and n_query
+        n_support = np.random.randint(1, n_shot)
+        n_query = n_shot - n_support
+        # print("# support: {}, # query: {}".format(n_support, n_query))
+        
+        assert(n_support > 0 and n_query > 0)
+    
         assert(n_way * (n_support + n_query) == 30)
+        
         
         # Generate a random task
         self.generate_task_list(n_tasks=1, n_way=n_way, n_support=n_support, n_query=n_query)
@@ -138,5 +151,14 @@ class DataLoader(object):
             # (Same as in the data_generator method)
 
         ##################################################
+        for i, key in enumerate(list(task.keys())):
+            values = task[key]
+            images = self.data[key]
+            for j in range(n_support):
+                idx = values[j]
+                support[i][j] = tf.reshape(images[idx], (28, 28, 1))
+            for j in range(n_query):
+                idx = values[j + n_support]
+                query[i][j] = tf.reshape(images[idx], (28, 28, 1))
         
         return support, query
