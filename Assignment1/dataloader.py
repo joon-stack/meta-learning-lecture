@@ -65,9 +65,13 @@ class DataLoader(object):
 
         for img in s:
             fig, axs = plt.subplots(1, self.n_support, figsize=(self.n_support, self.n_way))
-            for i in range(self.n_support):
-                axs[i].imshow(img[i], cmap='gray')
-                axs[i].axis('off')
+            if self.n_support > 1:
+                for i in range(self.n_support):
+                    axs[i].imshow(img[i], cmap='gray')
+                    axs[i].axis('off')
+            elif self.n_support == 1:
+                axs.imshow(img[0], cmap='gray')
+                axs.axis('off')
 
         plt.show()
     

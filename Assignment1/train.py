@@ -46,6 +46,16 @@ def train_model(train_dataset, val_dataset, n_tasks:int, n_epochs:int=20, n_tpe:
         val_losses.append(val_loss.result().numpy())
         val_accs.append(val_acc.result().numpy())
         
+#     def save_training_results(n_tasks, n_way, n_shots, train_accs, val_accs):
+#         train_accs = np.array(train_accs)
+#         val_accs = np.array(val_accs)
+#         overfitting_degree = train_accs - val_accs
+        
+#         res = np.vstack([train_accs, val_accs, overfitting_degree])
+#         np.savetxt('{}way_{}shots_{}tasks.txt'.format(n_way, n_shots, n_tasks))
+        
+        
+        
     model = Prototypical_Network()
     optimizer = tf.keras.optimizers.Adam()
     model.compile(optimizer=optimizer)
@@ -75,17 +85,8 @@ def train_model(train_dataset, val_dataset, n_tasks:int, n_epochs:int=20, n_tpe:
             validate(val_support, val_query)
         on_end_epoch(train_loss, train_acc, val_loss, val_acc, val_losses, val_accs, train_losses, train_accs)
     
-    # Plot training results
-    fig, axs = plt.subplots(1, 2, figsize=(12, 6))
-    axs[0].plot(np.arange(n_epochs), val_accs)
-    axs[1].plot(np.arange(n_epochs), np.array(train_accs) - np.array(val_accs))
-    axs[0].set_title('Validation Accuracy')
-    axs[1].set_title('Overfitting Degree')
-    axs[0].set_xlabel('Epochs')
-    axs[1].set_xlabel('Epochs')
-    axs[0].set_ylabel('Validation Accruacy')
-    axs[1].set_ylabel('Overfitting Degree')
-    plt.show()
+    
+    
         
     return train_accs, train_losses, val_accs, val_losses
 
