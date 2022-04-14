@@ -50,7 +50,8 @@ class DataLoader(object):
             task_keys = np.random.permutation(list(self.data.keys()))
             task = {}
             for j in range(n_way):
-                seq = np.random.permutation(n_query + n_support)
+                # seq = np.random.permutation(n_query + n_support)
+                seq = np.random.permutation(len(self.data[task_keys[0]]))[:n_query + n_support]
                 key = task_keys[j]
                 task[key] = seq
             task_list.append(task)
@@ -100,11 +101,15 @@ class DataLoader(object):
         
         for i, key in enumerate(list(task.keys())):
             values = task[key]
+            # img_idx_list = np.random.permutation(len(self.data[key]))
             images = self.data[key]
+              
             for j in range(self.n_support):
+                # idx = img_idx_list[values[j]]
                 idx = values[j]
                 support[i][j] = tf.reshape(images[idx], (28, 28, 1))
             for j in range(self.n_query):
+                # idx = img_idx_list[values[j + self.n_support]]
                 idx = values[j + self.n_support]
                 query[i][j] = tf.reshape(images[idx], (28, 28, 1))
         
@@ -125,15 +130,13 @@ class DataLoader(object):
 
         ##################################################
         
-        idx = np.random.randint(1, len(n_ways))
+        idx = np.random.randint(0, len(n_ways))
         n_way = n_ways[idx]
         n_shot = n_shots[idx]
-        # print("{} way {} shot task".format(n_way, n_shot))
         
         # Modify n_support and n_query
         n_support = np.random.randint(1, n_shot)
         n_query = n_shot - n_support
-        # print("# support: {}, # query: {}".format(n_support, n_query))
         
         assert(n_support > 0 and n_query > 0)
     

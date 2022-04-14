@@ -79,8 +79,6 @@ class Prototypical_Network(Model):
         expanded_s_prototypes = tf.expand_dims(s_prototypes, 1)
         expanded_q_embeddings = tf.expand_dims(q_embeddings, 0)
         
-        # test_q = tf.reshape(reshaped_q, (n_way, n_query, 28, 28, 1))
-        
         sub = tf.math.subtract(expanded_s_prototypes, expanded_q_embeddings)
         dists = tf.math.reduce_euclidean_norm(sub, 2)
     
@@ -94,17 +92,8 @@ class Prototypical_Network(Model):
         
         pred = tf.argmin(log_likelihood, 0)
         
-#         label = tf.zeros(n_query, dtype=tf.int64)
-        
-#         for i in range(1, n_way):
-#             label = tf.concat([label, tf.ones(n_query, dtype=tf.int64) * i], 0)
-        
         label = np.tile(np.arange(n_way)[:, np.newaxis], (1, n_query)).reshape(1, -1)
         eq = tf.cast(tf.math.equal(pred, tf.cast(label, tf.int64)), tf.float32)
         acc = tf.reduce_mean(eq)
-        # mask = tf.math.equal(pred, label)
-        # count = tf.math.reduce_sum(tf.boolean_mask(np.ones(mask.shape), mask))
-        
-        # acc = count / pred.shape[0]
         
         return loss, acc

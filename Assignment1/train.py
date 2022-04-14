@@ -46,16 +46,6 @@ def train_model(train_dataset, val_dataset, n_tasks:int, n_epochs:int=20, n_tpe:
         val_losses.append(val_loss.result().numpy())
         val_accs.append(val_acc.result().numpy())
         
-#     def save_training_results(n_tasks, n_way, n_shots, train_accs, val_accs):
-#         train_accs = np.array(train_accs)
-#         val_accs = np.array(val_accs)
-#         overfitting_degree = train_accs - val_accs
-        
-#         res = np.vstack([train_accs, val_accs, overfitting_degree])
-#         np.savetxt('{}way_{}shots_{}tasks.txt'.format(n_way, n_shots, n_tasks))
-        
-        
-        
     model = Prototypical_Network()
     optimizer = tf.keras.optimizers.Adam()
     model.compile(optimizer=optimizer)
