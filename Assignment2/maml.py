@@ -92,7 +92,6 @@ class MAML:
         """
 
         accuracies = []
-
         phi = tf.nest.map_structure(lambda x: tf.Variable(tf.zeros_like(x)), self.model.trainable_weights)
         tf.nest.map_structure(lambda x, y: x.assign(y), phi, theta)
 
@@ -108,6 +107,39 @@ class MAML:
 
 
         #####################################################
+        model_inner = tf.keras.models.clone_model(self.model)
+        model_inner._trainable_weights = phi
+
+        for i in range(self._num_inner_steps):
+            theta_copy = tf.nest.map_structure(lambda x: tf.Variable(tf.zeros_like(x)), self.model.trainable_weights)
+            tf.nest.map_structure(lambda x, y: x.assign(y), theta_copy, theta)
+            # print(theta_copy[0][0][0][0][0])
+            for images, labels in support_data:
+                with tf.GradientTape() as t:
+                    pred = model_inner(images)
+                    loss = loss_fn(labels, pred)
+                acc = metrics_fn(labels, pred)
+                accuracies.append(acc)
+                # model_inner.trainable_weights contains phi^i
+                gradients = t.gradient(loss, model_inner.trainable_weights)
+                opt_fn.apply_gradients(zip(gradients, theta_copy))
+                # theta_copy contains phi^(i+1)
+                # model_inner.trainable_weights and theta_copy is a list -> can enhance?
+                model_inner._trainable_weights = theta_copy
+                # for w, p in zip(model_inner.trainable_weights, theta_copy):
+                #     w.assign(p)
+                # print(theta_copy[0][0][0][0][0])
+        
+
+        for images, labels in support_data:
+            pred = model_inner(images)
+            acc = metrics_fn(labels, pred)
+            accuracies.append(acc)
+
+        phi = model_inner.trainable_weights
+
+        print(model_inner.trainable_weights[0][0][0][0][0], model_inner._trainable_weights[0][0][0][0][0])
+
         assert phi != None
         assert len(accuracies) == self._num_inner_steps + 1
 
@@ -146,8 +178,27 @@ class MAML:
         # and accuracy_query_batch.
         # Use keras.losses.SparseCategoricalCrossentropy to compute classification losses
         
+        loss_fn = tf.keras.losses.SparseCategoricalCrossentropy()
+
+        loss = 0
+
         for task in task_batch:
             support, query = task
+            phi = theta
+            phi, accuracy = self._inner_loop(phi, support)
+            accuracies_support_batch.append(accuracy)
+            self.model._trainable_weights = phi
+
+            for images, labels in query:
+                with tf.GradientTape() as t:
+                    pred_query = self.model(images)
+                    loss += loss_fn(labels, pred_query)
+                acc = metrics_fn(labels, pred_query)
+                accuracy_query_batch.append(acc)
+        gradients = t.gradient(loss, model.trainable_weights)
+        self._optimizer.apply_gradients(zip(gradients, model.trainable_weights))
+
+
 
 
         #####################################################
