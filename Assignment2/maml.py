@@ -65,10 +65,10 @@ class MAML:
         os.makedirs(self._save_dir, exist_ok=True)
 
         self._num_inner_steps = num_inner_steps
+
         self._inner_lr = inner_lr
         self._outer_lr = outer_lr
         self._optimizer = keras.optimizers.Adam(learning_rate=self._outer_lr)
-
 
         self.train_data = DataLoader('train', num_classes, n_support, n_query)
         self.val_data = DataLoader('test', num_classes, n_support, n_query)
@@ -90,7 +90,6 @@ class MAML:
             accuracies (list[float]): support set accuracy over the course of
                 the inner loop, length num_inner_steps + 1
         """
-
         accuracies = []
         phi = tf.nest.map_structure(lambda x: tf.Variable(tf.zeros_like(x)), self.model.trainable_weights)
         tf.nest.map_structure(lambda x, y: x.assign(y), phi, theta)
@@ -104,33 +103,23 @@ class MAML:
         # This method computes the inner loop (adaptation) procedure for one
         # task. It also scores the model along the way.
         # Make sure to populate accuracies and update parameters.
-
-
-        #####################################################
         model_inner = tf.keras.models.clone_model(self.model)
-        model_inner._trainable_weights = phi
-
-        for i in range(self._num_inner_steps):
-            theta_copy = tf.nest.map_structure(lambda x: tf.Variable(tf.zeros_like(x)), self.model.trainable_weights)
-            tf.nest.map_structure(lambda x, y: x.assign(y), theta_copy, theta)
-            # print(theta_copy[0][0][0][0][0])
-            for images, labels in support_data:
+        tf.nest.map_structure(lambda x, y: x.assign(y), model_inner.trainable_weights, phi)
+        theta_copy = tf.nest.map_structure(lambda x: tf.Variable(tf.zeros_like(x)), self.model.trainable_weights)
+        for n, (images, labels) in enumerate(support_data):
+            for i in range(self._num_inner_steps):
+                
+                tf.nest.map_structure(lambda x, y: x.assign(y), theta_copy, theta)
                 with tf.GradientTape() as t:
-                    pred = model_inner(images)
+                    pred = model_inner(images, training=True)
                     loss = loss_fn(labels, pred)
                 acc = metrics_fn(labels, pred)
                 accuracies.append(acc)
-                # model_inner.trainable_weights contains phi^i
                 gradients = t.gradient(loss, model_inner.trainable_weights)
                 opt_fn.apply_gradients(zip(gradients, theta_copy))
-                # theta_copy contains phi^(i+1)
-                # model_inner.trainable_weights and theta_copy is a list -> can enhance?
-                model_inner._trainable_weights = theta_copy
-                # for w, p in zip(model_inner.trainable_weights, theta_copy):
-                #     w.assign(p)
-                # print(theta_copy[0][0][0][0][0])
-        
-
+                tf.nest.map_structure(lambda x, y: x.assign(y), model_inner.trainable_weights, theta_copy)
+            
+    
         for images, labels in support_data:
             pred = model_inner(images)
             acc = metrics_fn(labels, pred)
@@ -138,8 +127,9 @@ class MAML:
 
         phi = model_inner.trainable_weights
 
-        print(model_inner.trainable_weights[0][0][0][0][0], model_inner._trainable_weights[0][0][0][0][0])
 
+        #####################################################
+        
         assert phi != None
         assert len(accuracies) == self._num_inner_steps + 1
 
@@ -179,32 +169,48 @@ class MAML:
         # Use keras.losses.SparseCategoricalCrossentropy to compute classification losses
         
         loss_fn = tf.keras.losses.SparseCategoricalCrossentropy()
+        gradients = tf.nest.map_structure(lambda x: tf.Variable(tf.zeros_like(x)), self.model.trainable_weights)
+        grad_query_batch = tf.nest.map_structure(lambda x: tf.Variable(tf.zeros_like(x)), self.model.trainable_weights)
+        model_outer = tf.keras.models.clone_model(self.model)
+        tf.nest.map_structure(lambda x, y: x.assign(y), model_outer.trainable_weights, theta)
 
-        loss = 0
 
         for task in task_batch:
             support, query = task
-            phi = theta
-            phi, accuracy = self._inner_loop(phi, support)
+            phi, accuracy = self._inner_loop(theta, support)
             accuracies_support_batch.append(accuracy)
-            self.model._trainable_weights = phi
-
+            tf.nest.map_structure(lambda x, y: x.assign(y), model_outer.trainable_weights, phi)
+            
+            loss_query = 0
+            acc_query = 0
             for images, labels in query:
                 with tf.GradientTape() as t:
-                    pred_query = self.model(images)
-                    loss += loss_fn(labels, pred_query)
-                acc = metrics_fn(labels, pred_query)
-                accuracy_query_batch.append(acc)
-        gradients = t.gradient(loss, model.trainable_weights)
-        self._optimizer.apply_gradients(zip(gradients, model.trainable_weights))
+                    pred = model_outer(images, training=True)
+                    loss = loss_fn(labels, pred)
+                if train:
+                    grad = t.gradient(loss, model_outer.trainable_weights)
+                    grad_query_batch = tf.nest.map_structure(lambda x, y: x + y, grad_query_batch, grad)
+                acc = metrics_fn(labels, pred)
+                loss_query += loss
+                acc_query += acc
 
+            loss = loss_query / len(query)
+            acc = acc_query / len(query)
 
+            if train:   
+                grad_query_batch = tf.nest.map_structure(lambda x: x / len(query), grad_query_batch)
+                gradients = tf.nest.map_structure(lambda x, y: x + y, gradients, grad_query_batch)
+            outer_loss_batch.append(loss)
+            accuracy_query_batch.append(acc)
 
-
+        if train:
+            gradients = tf.nest.map_structure(lambda x: x / len(task_batch), gradients)
+            self._optimizer.apply_gradients(zip(gradients, theta))
         #####################################################
         
         # Update model with new theta
-        tf.nest.map_structure(lambda x, y: x.assign(y), self.model.trainable_weights, theta)
+        if train:
+            tf.nest.map_structure(lambda x, y: x.assign(y), self.model.trainable_weights, theta)
 
         outer_loss = tf.reduce_mean(outer_loss_batch).numpy()
         accuracies_support = np.mean(accuracies_support_batch, axis=0)
@@ -385,7 +391,7 @@ if __name__ == '__main__':
                         help='inner-loop learning rate initialization')
     parser.add_argument('--outer_lr', type=float, default=0.001,
                         help='outer-loop learning rate')
-    parser.add_argument('--num_train_iterations', type=int, default=500,
+    parser.add_argument('--num_train_iterations', type=int, default=1000,
                         help='number of outer-loop updates to train for')
     parser.add_argument('--test', default=False, action='store_true',
                         help='train or test')

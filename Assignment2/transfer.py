@@ -14,6 +14,8 @@ tf.random.set_seed(SEED)
 
 from dataloader import DataLoader
 
+import matplotlib.pyplot as plt
+
 
 
 NUM_CONV_LAYERS = 4
@@ -134,18 +136,40 @@ class TransferLearning:
         accuracies_support_batch = []
         accuracy_query_batch = []
 
+
         ############### Your code here ###################
         # TODO: finish implementing this method.
         # For a given task, create a new model with a new Dense classification layer,
-        # use the _fine_tune method to adapt, then
-        # compute the MAML loss and other metrics.
+        # use the model.fit method to adapt, then
+        # compute the loss and other metrics.
         # Make sure to populate outer_loss_batch, accuracies_support_batch,
         # and accuracy_query_batch.
 
+        x0 = tf.keras.Input(shape=(28, 28))
+        x1 = feature_extractor(x0)
+        x2 = tf.keras.layers.Dense(5, activation='softmax', name='classifcation')(x1)
+        model = tf.keras.Model(inputs=x0, outputs=x2, name='Adapted')
+        # model = tf.keras.Sequential()
+        # model.add(feature_extractor)
+        # model.add(layers.Dense(5, activation='softmax'))
+        model.compile(
+            optimizer=opt_fn, 
+            loss=loss_fn,
+            metrics=metrics_fn
+        )
+        
         for task in task_batch:
+            
             support, query = task
             
-
+            metrics = model.fit(support, epochs=self._num_inner_steps, verbose=0)
+            acc = metrics.history['Accuracy']
+            accuracies_support_batch.append(acc)
+                
+            results = model.evaluate(query, verbose=0)
+            loss, acc = results
+            outer_loss_batch.append(loss)
+            accuracy_query_batch.append(acc)
         #####################################################
         outer_loss = tf.reduce_mean(outer_loss_batch).numpy()
         accuracies_support = np.mean(accuracies_support_batch, axis=0)
@@ -242,7 +266,7 @@ class TransferLearning:
 
     def _save_model(self):
         # Save a model to 'save_dir'
-        self.model.save(os.path.join(self._save_dir, f"{self._train_step}.h5"))
+        self.model.save_weights(os.path.join(self._save_dir, f"{self._train_step}.h5"))
         print("Saved Checkpoint")
 
 
@@ -307,7 +331,7 @@ if __name__ == '__main__':
                         help='inner-loop learning rate initialization')
     parser.add_argument('--outer_lr', type=float, default=0.001,
                         help='outer-loop learning rate')
-    parser.add_argument('--num_train_iterations', type=int, default=500,
+    parser.add_argument('--num_train_iterations', type=int, default=1000,
                         help='number of outer-loop updates to train for')
     parser.add_argument('--test', default=False, action='store_true',
                         help='train or test')
